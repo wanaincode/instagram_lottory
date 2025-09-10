@@ -1,7 +1,4 @@
 # IG Comment Giveaway Picker
-
-## 日本語
-
 Instagramのコメント抽選を行うためのシンプルなWebツールです。
 
 ### 特徴
@@ -38,7 +35,7 @@ instagram_lottory/
 
 ---
 
-## English
+## English Version
 
 A simple web-based tool to run Instagram comment giveaways.
 
