@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IG Comment Giveaway Picker</title>
+  <style>
+    body { font-family: sans-serif; background:#0b0f14; color:#e8eef5; margin:0; }
+    .container { max-width: 800px; margin:0 auto; padding:20px; }
+    .title { font-size:24px; font-weight:700; margin-bottom:6px; }
+    .subtitle { color:#a7b4c2; font-size:14px; margin-bottom:20px; }
+    .card { background:#10161d; border:1px solid #223140; border-radius:12px; padding:16px; margin-bottom:16px; }
+    h2 { font-size:16px; margin-top:0; }
+    label { display:block; font-size:13px; margin-bottom:4px; color:#a7b4c2; }
+    input[type="text"], input[type="number"] { width:100%; padding:8px; border-radius:8px; border:1px solid #223140; background:#0e141b; color:#e8eef5; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+    .btn { padding:8px 14px; border-radius:8px; border:1px solid #223140; background:#0e141b; color:#e8eef5; cursor:pointer; }
+    .btn.primary { background:#0284c7; border-color:#1f6aa5; }
+    .winner-card { background:#0e1722; border:1px solid #1e3a5f; border-radius:10px; padding:8px 10px; margin-bottom:8px; }
+    .mono { font-family: monospace; }
+    .filebox { border:1px dashed #2a3a4c; border-radius:8px; padding:20px; text-align:center; cursor:pointer; }
+    .filebox.drag { border-color:#60a5fa; background:rgba(37,99,235,0.07); }
+    .footer { font-size:12px; color:#a7b4c2; margin-top:20px; }
+    .stat { font-size:13px; margin-top:8px; color:#a7b4c2; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">IG Comment Giveaway Picker</div>
+    <div class="subtitle" style="margin-bottom:20px;">
+      Preparation: Export your Instagram comments as CSV via
+      <a href="https://exportcomments.com/" target="_blank" style="color:#7dd3fc;">ExportComments.com</a>
+    </div>
+
+    <section class="card">
+      <h2>1) Upload file</h2>
+      <label>CSV (columns: username, comment)</label>
+      <div id="dropzone" class="filebox">
+        Drag & drop here or click to select
+        <input id="fileInput" type="file" accept=".csv" style="display:none;" />
+      </div>
+      <div class="stat">
+        <span id="statTotal">0</span> rows loaded · <span id="statEligible">0</span> eligible
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2) Settings</h2>
+      <div class="row">
+        <div style="flex:1;">
+          <label>Number of winners</label>
+          <input id="winnersCount" type="number" min="1" value="1" />
+        </div>
+        <div style="flex:2;">
+          <label>Required keywords (comma-separated)</label>
+          <input id="mustKeywords" type="text" placeholder="#ad, #sodukpeople" />
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="drawBtn">Draw</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3) Results</h2>
+      <div id="results" style="margin-top:8px;"></div>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn" id="exportResult">Export results (CSV)</button>
+      </div>
+    </section>
+
+    <div class="footer">Note: This tool does not use Instagram API. Prepare/export comments yourself.</div>
+  </div>
+
+  <script>
+    // --- CSV parser (supports quotes/commas/newlines) ---
+    function parseCSV(text){
+      const rows=[]; let i=0, field='', row=[], inQ=false;
+      while(i<text.length){
+        const c=text[i];
+        if(inQ){
+          if(c==='"'){
+            if(text[i+1]==='"'){ field+='"'; i++; } else inQ=false;
+          } else field+=c;
+        } else {
+          if(c==='"') inQ=true;
+          else if(c===','){ row.push(field); field=''; }
+          else if(c==='\n'||c==='\r'){
+            if(field!==''||row.length){ row.push(field); rows.push(row); row=[]; field=''; }
+            if(c==='\r'&&text[i+1]==='\n') i++;
+          } else field+=c;
+        }
+        i++;
+      }
+      if(field!==''||row.length){ row.push(field); rows.push(row); }
+      return rows;
+    }
+
+    // --- Crypto-strong shuffle (Fisher–Yates using window.crypto) ---
+    function cryptoShuffle(a){
+      const arr=a.slice();
+      for(let i=arr.length-1;i>0;i--){
+        const buf=new Uint32Array(1); crypto.getRandomValues(buf);
+        const j=buf[0]%(i+1);
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+      return arr;
+    }
+
+    const state={ raw:[], eligible:[], winners:[] };
+
+    // Detect header row and important columns; supports ExportComments.com
+    function detectColumns(rows){
+      const maxScan = Math.min(rows.length, 100);
+      for (let r = 0; r < maxScan; r++) {
+        const hdr = rows[r].map(x => String(x || '').trim().toLowerCase());
+        const hasComment = hdr.some(h => ['comment','comments'].includes(h));
+        const userIdx = hdr.findIndex(h => ['username','user','account'].includes(h));
+        const nameIdx = hdr.findIndex(h => ['name','display name'].includes(h));
+        if (hasComment && (userIdx >= 0 || nameIdx >= 0)) {
+          const commentIdx = hdr.findIndex(h => ['comment','comments'].includes(h));
+          return { headerRow: r, uIdx: userIdx, nameIdx, cIdx: commentIdx, start: r + 1 };
+        }
+      }
+      // Fallback: assume first row is data: [username, comment]
+      return { headerRow: -1, uIdx: 0, nameIdx: -1, cIdx: 1, start: 0 };
+    }
+
+    function addFromCSV(text){
+      const rows = parseCSV(text);
+      // drop empty lines
+      const metaTrimmed = rows.filter(r => r && r.some(x => String(x).trim() !== ''));
+      const {start, uIdx, nameIdx, cIdx} = detectColumns(metaTrimmed);
+
+      for (let i = start; i < metaTrimmed.length; i++) {
+        const r = metaTrimmed[i]; if (!r || !r.length) continue;
+        // Prefer Username; fallback to Name
+        let username = String(
+          r[uIdx >= 0 ? uIdx : nameIdx] ||
+          r[nameIdx >= 0 ? nameIdx : uIdx] || ''
+        ).trim();
+        const comment = String(r[cIdx] || '').trim();
+        username = username.replace(/^@+/, '');
+        if (username && comment && username.toLowerCase() !== 'username') {
+          state.raw.push({ username, comment });
+        }
+      }
+      updateEligible();
+      updateStats();
+    }
+
+    function updateEligible(){
+      const must=(document.getElementById('mustKeywords').value||'')
+        .split(',').map(s=>s.trim()).filter(Boolean);
+      const ok=txt=> must.length ? must.every(k=> txt.toLowerCase().includes(k.toLowerCase())) : true;
+      state.eligible=state.raw.filter(r=> ok(r.comment));
+    }
+
+    function updateStats(){
+      document.getElementById('statTotal').textContent=String(state.raw.length);
+      document.getElementById('statEligible').textContent=String(state.eligible.length);
+    }
+
+    function draw(){
+      const n=Math.max(1, parseInt(document.getElementById('winnersCount').value)||1);
+      if(!state.eligible.length){ alert('No eligible rows.'); return; }
+      const pool=cryptoShuffle(state.eligible);
+      state.winners=pool.slice(0, Math.min(n, pool.length));
+      renderResults();
+    }
+
+    function renderResults(){
+      const box=document.getElementById('results');
+      box.innerHTML=state.winners.map((r,i)=>`
+        <div class="winner-card">
+          <div class="mono">#${i+1} @${escapeHTML(r.username)}</div>
+          <div style="font-size:13px;">${escapeHTML(r.comment)}</div>
+        </div>
+      `).join('');
+    }
+
+    function exportResults(){
+      if(!state.winners.length) return;
+      const headers=['rank','username','comment'];
+      const rows=[headers.join(',')].concat(
+        state.winners.map((r,i)=> headers.map(h=> csvField(h==='rank'? i+1 : r[h])).join(','))
+      );
+      const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='giveaway_results.csv'; a.click();
+      setTimeout(()=> URL.revokeObjectURL(a.href),1000);
+    }
+
+    function csvField(v){ const s=String(v??''); return /[",\n]/.test(s)? '"'+s.replace(/"/g,'""')+'"' : s; }
+    function escapeHTML(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+    // --- Events ---
+    const dropzone=document.getElementById('dropzone');
+    dropzone.addEventListener('click',()=> document.getElementById('fileInput').click());
+    dropzone.addEventListener('dragover',e=>{e.preventDefault(); dropzone.classList.add('drag');});
+    dropzone.addEventListener('dragleave',()=> dropzone.classList.remove('drag'));
+    dropzone.addEventListener('drop',e=>{
+      e.preventDefault(); dropzone.classList.remove('drag');
+      const f=e.dataTransfer.files[0]; if(f) readFile(f);
+    });
+    document.getElementById('fileInput').addEventListener('change',e=>{
+      const f=e.target.files[0]; if(f) readFile(f);
+    });
+
+    function readFile(file){
+      const rd=new FileReader();
+      rd.onload=()=>{
+        state.raw=[]; state.eligible=[]; state.winners=[];
+        addFromCSV(String(rd.result));
+      };
+      rd.readAsText(file,'utf-8');
+    }
+
+    document.getElementById('mustKeywords').addEventListener('input',()=>{ updateEligible(); updateStats(); });
+    document.getElementById('drawBtn').addEventListener('click',draw);
+    document.getElementById('exportResult').addEventListener('click',exportResults);
+  </script>
+</body>
+</html>
