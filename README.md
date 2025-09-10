@@ -9,16 +9,13 @@ Instagramのコメント抽選を行うためのシンプルなWebツールで�
 - 当選結果をCSVとしてエクスポート可能。
 
 ### 使い方
-1. 準備: [ExportComments.com](https://exportcomments.com/)からInstagramコメントをCSVでエクスポート。
-2. `index.html`をブラウザで開く（サーバーやAPI不要）。
-3. CSVファイルをアップロード。
-4. 当選者数と（必要であれば）必須キーワードを設定。
-5. **Draw**をクリックすると当選者が表示されます。
-6. （必要なら）結果をCSVとしてエクスポート。
+1. [ExportComments.com](https://exportcomments.com/)からコメントをCSVでエクスポートし、`index.html`をブラウザで開く。
+2. CSVファイルをアップロードし、当選者数と必要に応じてキーワードを設定。
+3. **Draw**をクリックして当選者を表示し、必要なら結果をCSVでエクスポート。
 
-### デプロイ
-- このリポジトリをGitHubにPushし、**GitHub Pages**を有効にするとオンラインで共有可能。
-- 完全にフロントエンドのツールなので、バックエンドは不要です。
+### デモ
+- GitHub Pagesでオンラインデモを利用できます：  
+  [https://wanaincode.github.io/instagram_lottory/](https://wanaincode.github.io/instagram_lottory/)
 
 ### フォルダ構成
 このリポジトリのフォルダ構成は以下の通りです：
@@ -47,16 +44,13 @@ A simple web-based tool to run Instagram comment giveaways.
 - Export the winners list as CSV.
 
 ### How to Use
-1. Prepare: Export Instagram comments as CSV via [ExportComments.com](https://exportcomments.com/).
-2. Open `index.html` in your browser (no server or API needed).
-3. Upload the CSV file.
-4. Set the number of winners and (optionally) required keywords.
-5. Click **Draw** to see winners.
-6. (Optional) Export results as CSV.
+1. Export comments as CSV via [ExportComments.com](https://exportcomments.com/) and open `index.html` in your browser.
+2. Upload the CSV file, set the number of winners and optional keywords.
+3. Click **Draw** to display winners and export results as CSV if needed.
 
-### Deployment
-- Push this repo to GitHub and enable **GitHub Pages** to share online.
-- Because it is a pure front-end tool, no backend is required.
+### Demo
+- Try the online demo on GitHub Pages:  
+  [https://wanaincode.github.io/instagram_lottory/](https://wanaincode.github.io/instagram_lottory/)
 
 ### Folder Structure
 The repository folder structure is as follows:
